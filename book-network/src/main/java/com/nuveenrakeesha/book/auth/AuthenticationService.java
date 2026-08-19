@@ -1,18 +1,22 @@
 package com.nuveenrakeesha.book.auth;
 
+import com.nuveenrakeesha.book.email.EmailService;
+import com.nuveenrakeesha.book.email.EmailTemplateName;
 import com.nuveenrakeesha.book.role.RoleRepository;
 import com.nuveenrakeesha.book.user.Token;
 import com.nuveenrakeesha.book.user.TokenRepository;
 import com.nuveenrakeesha.book.user.User;
 import com.nuveenrakeesha.book.user.UserRepository;
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
+
 
 @Service
 @RequiredArgsConstructor
@@ -22,9 +26,12 @@ public class AuthenticationService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final EmailService emailService;
+    @Value("{application.mailing.frontend.activation-url}")
+    private String activationUrl;
 
 
-    public void register(RegistrationRequest request) {
+    public void register(RegistrationRequest request) throws MessagingException {
         var userRole = roleRepository.findByName("USER")
                 //todo - better exception handling
                 .orElseThrow(() -> new IllegalStateException("Role User was not initialized"));
@@ -43,11 +50,19 @@ public class AuthenticationService {
 
     }
 
-    private void sendValidationEmail(User user) {
+    private void sendValidationEmail(User user) throws MessagingException {
         var newToken = generateAndSaveActivationToken(user);
-        //send email
 
+        emailService.sendEmail(
+                user.getEmail(),
+                user.fullName(),
+                EmailTemplateName.ACTIVATE_ACCOUNT,
+                activationUrl,
+                newToken,
+                "Account activation"
+        );
     }
+
 
     private String generateAndSaveActivationToken(User user) {
         //generate a token
