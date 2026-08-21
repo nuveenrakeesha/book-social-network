@@ -3,18 +3,23 @@ package com.nuveenrakeesha.book.auth;
 import com.nuveenrakeesha.book.email.EmailService;
 import com.nuveenrakeesha.book.email.EmailTemplateName;
 import com.nuveenrakeesha.book.role.RoleRepository;
+import com.nuveenrakeesha.book.security.JwtService;
 import com.nuveenrakeesha.book.user.Token;
 import com.nuveenrakeesha.book.user.TokenRepository;
 import com.nuveenrakeesha.book.user.User;
 import com.nuveenrakeesha.book.user.UserRepository;
 import jakarta.mail.MessagingException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 
 
@@ -27,6 +32,8 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
     @Value("{application.mailing.frontend.activation-url}")
     private String activationUrl;
 
@@ -89,4 +96,21 @@ public class AuthenticationService {
     }
 
 
+    public AuthenticationResponse authenticate(@Valid AuthenticationRequest request) {
+
+        var auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+        var claims = new HashMap<String, Object>();
+        var user = ((User)auth.getPrincipal());
+        claims.put("fullname", user.fullName());
+        var jwtToken = jwtService.generateToken(claims, user);
+
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .build();
+    }
 }
